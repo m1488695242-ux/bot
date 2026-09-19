@@ -10,7 +10,21 @@ ADMIN_ID = 7766833471
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Справочник подписей для админки (на случай, если захочешь догрузить новые фото через чат)
+# Функция для автоматического подсчета и регистрации уникальных людей
+def register_user(user_id):
+    users_file = "users.txt"
+    if not os.path.exists(users_file):
+        with open(users_file, "w") as f:
+            f.write("")
+            
+    with open(users_file, "r") as f:
+        users = f.read().splitlines()
+        
+    if str(user_id) not in users:
+        with open(users_file, "a") as f:
+            f.write(f"{user_id}\n")
+
+# Справочник подписей для админки
 COMMAND_DICT = {
     "физика лабораторная работа": "fiz_lab",
     "физика лаба": "fiz_lab",
@@ -128,6 +142,9 @@ async def handle_admin_photo(message: Message):
 
 @dp.message(F.text == "/start")
 async def start_cmd(message: Message):
+    # Регистрируем человека при старте бота
+    register_user(message.from_user.id)
+    
     welcome_text = (
         "Привет! Выбери предмет под строкой ввода:\n\n"
         "⭐️ Если бот помог тебе, и тебе не жалко, то задонать мне звёзд 👉 @m4kson4ik14"
@@ -135,6 +152,17 @@ async def start_cmd(message: Message):
     if message.from_user.id == ADMIN_ID:
         welcome_text += "\n\n😎 *Вы вошли как админ!* Отправляй мне фотки пачкой из галереи и подписывай первую: `физика лаба 1`"
     await message.answer(welcome_text, reply_markup=get_main_keyboard())
+
+# СЕКРЕТНАЯ КОМАНДА ПРОСМОТРА СТАТИСТИКИ (доступна только тебе)
+@dp.message(F.text == "/stats", F.from_user.id == ADMIN_ID)
+async def view_stats(message: Message):
+    users_file = "users.txt"
+    if os.path.exists(users_file):
+        with open(users_file, "r") as f:
+            count = len(f.read().splitlines())
+        await message.answer(f"📊 **Статистика бота:**\nВсего уникальных пользователей: `{count}`")
+    else:
+        await message.answer("📊 **Статистика бота:**\nВсего уникальных пользователей: `0` (никто еще не писал /start после обновления)")
 
 @dp.callback_query(F.data == "to_main")
 async def back_to_main(callback: CallbackQuery):
@@ -195,12 +223,12 @@ async def main():
     # Автоматическая распаковка архива с фото на сервере, если он загружен
     if os.path.exists("photos.zip"):
         import zipfile
-        print("Распаковываю архив с фотографиями...")
+        print("Распаковуваю архив с фотографиями...")
         try:
             with zipfile.ZipFile("photos.zip", 'r') as zip_ref:
                 zip_ref.extractall(".")
             os.remove("photos.zip")
-            print("Архив успешно распакован и удален.")
+            print("Архив успешно распакован.")
         except Exception as e:
             print(f"Ошибка при распаковке архива: {e}")
 
@@ -212,3 +240,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+                
